@@ -168,4 +168,157 @@ export async function generateRecommendations(rawBody: unknown) {
   }
 }
 
+/**
+ * 독서성향 분석
+ * 사용자의 읽은 책들을 분석하여 독서 성향을 파악합니다.
+ */
+export async function analyzeReadingTendency(userId: number) {
+  // 사용자의 읽은 책들 조회
+  const books = await prisma.book.findMany({
+    where: {
+      userId,
+      status: 'COMPLETED', // 완료된 책만
+    },
+    orderBy: {
+      updatedAt: 'desc',
+    },
+    take: 50, // 최근 50권만 분석
+  });
 
+  if (books.length === 0) {
+    return {
+      summary: '아직 완료한 책이 없어 독서 성향을 분석할 수 없습니다. 책을 읽고 완료해보세요!',
+      preferredGenres: [],
+      readingStyle: null,
+      readingPattern: null,
+      favoriteAuthors: [],
+      readingInsights: [],
+    };
+  }
+
+  // 독서 통계 계산
+  const totalBooks = books.length;
+  const totalPages = books.reduce((sum, book) => sum + (book.totalPage || 0), 0);
+  const averagePages = totalPages > 0 ? Math.round(totalPages / totalBooks) : 0;
+  const totalReadingTime = books.reduce((sum, book) => sum + book.totalReadingTime, 0);
+
+  // 책 데이터 준비 (제목, 저자만)
+  const booksData = books.map((book) => ({
+    title: book.title,
+    author: book.author,
+  }));
+
+  if (!process.env.OPENAI_API_KEY) {
+    // OpenAI 사용 불가 시 기본 응답
+    return {
+      summary: `총 ${totalBooks}권의 책을 완료하셨습니다.`,
+      preferredGenres: [],
+      readingStyle: null,
+      readingPattern: null,
+      favoriteAuthors: [],
+      readingInsights: [],
+      stats: {
+        totalBooks,
+        totalPages,
+        averagePages,
+        totalReadingTime,
+      },
+    };
+  }
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are an AI reading analyst for a reading tracker app called BookLens. ' +
+            'Analyze the user\'s reading history and provide insights about their reading tendency. ' +
+            'Output JSON ONLY, no additional text. ' +
+            'Output format: { ' +
+            '"summary": "전체적인 독서 성향 요약 (한국어, 2-3문장)", ' +
+            '"preferredGenres": ["장르1", "장르2"], ' +
+            '"readingStyle": "독서 스타일 설명 (한국어)", ' +
+            '"readingPattern": "독서 패턴 설명 (한국어)", ' +
+            '"favoriteAuthors": ["저자1", "저자2"], ' +
+            '"readingInsights": ["인사이트1 (한국어)", "인사이트2 (한국어)"] ' +
+            '}. ' +
+            'Rules: ' +
+            '- 모든 텍스트는 한국어로 작성. ' +
+            '- preferredGenres는 책 제목과 저자를 기반으로 추론. ' +
+            '- readingStyle과 readingPattern은 책 제목과 저자 패턴을 분석하여 작성. ' +
+            '- favoriteAuthors는 책 제목 목록에서 자주 등장하는 저자를 추출. ' +
+            '- readingInsights는 3-5개의 구체적인 인사이트 제공. ' +
+            '- 모든 배열은 최대 5개 항목.',
+        },
+        {
+          role: 'user',
+          content: JSON.stringify({
+            books: booksData,
+            stats: {
+              totalBooks,
+              totalPages,
+              averagePages,
+              totalReadingTime,
+            },
+          }),
+        },
+      ],
+    });
+
+    const raw = completion.choices[0]?.message?.content || '';
+
+    let parsedResponse: unknown;
+    try {
+      parsedResponse = JSON.parse(raw);
+    } catch {
+      parsedResponse = null;
+    }
+
+    const ReadingTendencySchema = z.object({
+      summary: z.string(),
+      preferredGenres: z.array(z.string()),
+      readingStyle: z.string().nullable(),
+      readingPattern: z.string().nullable(),
+      favoriteAuthors: z.array(z.string()),
+      readingInsights: z.array(z.string()),
+    });
+
+    const validated = parsedResponse
+      ? ReadingTendencySchema.safeParse(parsedResponse)
+      : { success: false } as const;
+
+    if (!('success' in validated) || !validated.success) {
+      // 기본 응답 반환
+      return {
+        summary: `총 ${totalBooks}권의 책을 완료하셨습니다.`,
+        preferredGenres: [],
+        readingStyle: null,
+        readingPattern: null,
+        favoriteAuthors: [],
+        readingInsights: [],
+        stats: {
+          totalBooks,
+          totalPages,
+          averagePages,
+          totalReadingTime,
+        },
+      };
+    }
+
+    return {
+      ...validated.data,
+      stats: {
+        totalBooks,
+        totalPages,
+        averagePages,
+        totalReadingTime,
+      },
+    };
+  } catch (err) {
+    console.error('OpenAI reading tendency analysis error', err);
+    throw new AppError('Failed to analyze reading tendency', 500);
+  }
+}

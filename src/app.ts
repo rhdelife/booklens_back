@@ -47,7 +47,10 @@ app.get('/', (_req, res) => {
       auth: '/api/auth/*',
       books: '/api/books/*',
       postings: '/api/postings/*',
-      ai: '/api/ai/recommendations',
+      ai: {
+        recommendations: '/api/ai/recommendations',
+        readingTendency: '/api/ai/reading-tendency',
+      },
     },
   });
 });
