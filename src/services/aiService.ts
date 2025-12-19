@@ -120,8 +120,8 @@ export async function generateRecommendations(rawBody: unknown) {
       seed,
     };
 
-    const completion = await openai.responses.create({
-      model: 'gpt-4.1-mini',
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
       response_format: { type: 'json_object' },
       messages: [
         {
@@ -141,10 +141,7 @@ export async function generateRecommendations(rawBody: unknown) {
       ],
     });
 
-    const raw =
-      completion.output[0].content[0].type === 'output_text'
-        ? completion.output[0].content[0].text
-        : '';
+    const raw = completion.choices[0]?.message?.content || '';
 
     let parsedResponse: unknown;
     try {

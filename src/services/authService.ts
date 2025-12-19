@@ -12,7 +12,7 @@ export function createToken(user: { id: number; email: string }) {
       email: user.email,
     },
     JWT_SECRET,
-    { expiresIn: JWT_EXPIRES_IN },
+    { expiresIn: JWT_EXPIRES_IN as string },
   );
 }
 
