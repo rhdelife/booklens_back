@@ -96,7 +96,13 @@ export async function handleGoogleCallback(code: string) {
     return { user, token };
   } catch (error) {
     console.error('Google OAuth callback error:', error);
-    throw new Error('Failed to authenticate with Google');
+    // 상세 에러 정보를 로깅
+    if (error instanceof Error) {
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    }
+    // 원본 에러를 그대로 전달하여 더 많은 정보 제공
+    throw error;
   }
 }
 
