@@ -25,8 +25,15 @@ router.post('/save', authMiddleware, async (req: AuthenticatedRequest, res, next
       throw new AppError('필수 필드가 누락되었습니다.', 400);
     }
 
+    // bookId 검증 (정수이고 범위 내인지 확인)
+    const bookIdNum = Number(bookId);
+    if (isNaN(bookIdNum) || !Number.isInteger(bookIdNum) || bookIdNum <= 0 || bookIdNum > 2147483647) {
+      console.error('[ReadingSession] Invalid bookId:', bookId, 'type:', typeof bookId);
+      throw new AppError('유효하지 않은 책 ID입니다.', 400);
+    }
+
     const result = await saveReadingSession(userId, {
-      bookId: Number(bookId),
+      bookId: bookIdNum,
       bookTitle,
       bookAuthor,
       bookThumbnail,
