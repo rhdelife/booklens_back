@@ -1,0 +1,111 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               Int       @id @default(autoincrement())
+  email            String    @unique
+  passwordHash     String
+  name             String
+  nickname         String?
+  alias            String?
+  bio              String?
+  profileImageUrl  String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  books            Book[]
+  postings         Posting[]
+  comments         Comment[]
+  likes            Like[]
+  readingSessions  ReadingSession[]
+}
+
+model Book {
+  id                Int              @id @default(autoincrement())
+  userId            Int
+  title             String
+  author            String
+  publisher         String?
+  publishDate       String?
+  totalPage         Int
+  readPage          Int              @default(0)
+  progress          Float            @default(0)
+  status            BookStatus       @default(READING)
+  startDate         String?
+  completedDate     String?
+  totalReadingTime  Int              @default(0) // seconds
+  memo              String?
+  thumbnail         String?
+  isbn              String?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  user              User             @relation(fields: [userId], references: [id])
+  readingSessions   ReadingSession[]
+  postings          Posting[]
+}
+
+enum BookStatus {
+  READING
+  COMPLETED
+  NOT_STARTED
+}
+
+model ReadingSession {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  bookId     Int
+  startTime  DateTime
+  endTime    DateTime?
+  pagesRead  Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id])
+  book       Book     @relation(fields: [bookId], references: [id])
+}
+
+model Posting {
+  id         Int       @id @default(autoincrement())
+  userId     Int
+  bookId     Int?
+  title      String
+  content    String
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  user       User      @relation(fields: [userId], references: [id])
+  book       Book?     @relation(fields: [bookId], references: [id])
+  comments   Comment[]
+  likes      Like[]
+}
+
+model Comment {
+  id         Int       @id @default(autoincrement())
+  userId     Int
+  postingId  Int
+  content    String
+  createdAt  DateTime  @default(now())
+
+  user       User      @relation(fields: [userId], references: [id])
+  posting    Posting   @relation(fields: [postingId], references: [id])
+}
+
+model Like {
+  id         Int       @id @default(autoincrement())
+  userId     Int
+  postingId  Int
+  createdAt  DateTime  @default(now())
+
+  user       User      @relation(fields: [userId], references: [id])
+  posting    Posting   @relation(fields: [postingId], references: [id])
+
+  @@unique([userId, postingId])
+}
+
+

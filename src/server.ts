@@ -1,0 +1,13 @@
+import dotenv from 'dotenv';
+import app from './app';
+
+dotenv.config();
+
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log(`🚀 BookLens TS backend running on http://localhost:${PORT}`);
+  console.log(`📡 API base: http://localhost:${PORT}/api`);
+});
+
+
