@@ -44,140 +44,190 @@ const AiResponseSchema = z.object({
 export type AiRequestInput = z.infer<typeof AiRequestSchema>;
 
 export async function generateRecommendations(rawBody: unknown) {
-  const parsed = AiRequestSchema.safeParse(rawBody);
-  if (!parsed.success) {
-    throw new AppError('Invalid request', 400, parsed.error.flatten());
-  }
-
-  const { inputType, query, userContext } = parsed.data;
-
-  // Build minimal seed from DB if possible
-  let seed = {
-    title: null as string | null,
-    author: null as string | null,
-    genre: null as string | null,
-    isbn13: null as string | null,
-  };
-
-  if (inputType === 'isbn') {
-    const book = await prisma.book.findFirst({
-      where: { isbn: query },
-    });
-    if (book) {
-      seed = {
-        title: book.title,
-        author: book.author,
-        genre: null,
-        isbn13: query,
-      };
-    } else {
-      seed = {
-        title: null,
-        author: null,
-        genre: null,
-        isbn13: query,
-      };
-    }
-  } else {
-    const book = await prisma.book.findFirst({
-      where: {
-        title: {
-          contains: query,
-          mode: 'insensitive',
-        },
-      },
-    });
-    if (book) {
-      seed = {
-        title: book.title,
-        author: book.author,
-        genre: null,
-        isbn13: book.isbn ?? null,
-      };
-    } else {
-      seed = {
-        title: query,
-        author: null,
-        genre: null,
-        isbn13: null,
-      };
-    }
-  }
-
-  if (!process.env.OPENAI_API_KEY) {
-    // OpenAI 사용 불가 시, 최소 구조로 빈 추천 반환
-    return {
-      seed,
-      items: [] as unknown[],
-    };
-  }
-
   try {
-    const userMessagePayload = {
-      inputType,
-      query,
-      userContext,
-      seed,
-    };
-
-    console.log('[AI] Generating recommendations with payload:', {
-      inputType,
-      query: query.substring(0, 50), // 처음 50자만 로깅
-      hasUserContext: !!userContext,
-      hasSeed: !!seed,
-      hasOpenAIKey: !!process.env.OPENAI_API_KEY,
-    });
-
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      response_format: { type: 'json_object' },
-      messages: [
-        {
-          role: 'system',
-          content:
-            'You are an AI book recommender for a reading tracker app called BookLens. ' +
-            'Output JSON ONLY, no additional text. ' +
-            'Input: a seed book (may be partial or missing), recent favorite books, preferred genres, and a reading goal. ' +
-            'Output format: { "seed": { "title": "...", "author": "...", "genre": "...", "isbn13": "..." }, "items": [ { "title": "...", "author": "...", "genre": "...", "reason": "...", "keywords": ["...","..."] } ] }. ' +
-            'Rules: If the seed is incomplete, still proceed using userContext. Never invent real ISBNs; you may set isbn13 to null or empty. ' +
-            'Reason should be 1-2 concise sentences in Korean. Up to 5 items.',
-        },
-        {
-          role: 'user',
-          content: JSON.stringify(userMessagePayload),
-        },
-      ],
-    });
-
-    const raw = completion.choices[0]?.message?.content || '';
-
-    let parsedResponse: unknown;
-    try {
-      parsedResponse = JSON.parse(raw);
-    } catch (parseErr) {
-      console.error('[AI] JSON parse error:', parseErr);
-      console.error('[AI] Raw response:', raw.substring(0, 200));
-      parsedResponse = null;
+    const parsed = AiRequestSchema.safeParse(rawBody);
+    if (!parsed.success) {
+      console.error('[AI] Request validation failed:', parsed.error.flatten());
+      throw new AppError('Invalid request', 400, parsed.error.flatten());
     }
 
-    const validated = parsedResponse
-      ? AiResponseSchema.safeParse(parsedResponse)
-      : { success: false } as const;
+    const { inputType, query, userContext } = parsed.data;
 
-    if (!('success' in validated) || !validated.success) {
-      console.warn('[AI] Validation failed, returning empty items');
+    // Build minimal seed from DB if possible
+    let seed = {
+      title: null as string | null,
+      author: null as string | null,
+      genre: null as string | null,
+      isbn13: null as string | null,
+    };
+
+    // Prisma 쿼리는 실패해도 계속 진행 (DB에 책이 없어도 괜찮음)
+    try {
+      if (inputType === 'isbn') {
+        const book = await prisma.book.findFirst({
+          where: { isbn: query },
+        });
+        if (book) {
+          seed = {
+            title: book.title,
+            author: book.author,
+            genre: null,
+            isbn13: query,
+          };
+        } else {
+          seed = {
+            title: null,
+            author: null,
+            genre: null,
+            isbn13: query,
+          };
+        }
+      } else {
+        const book = await prisma.book.findFirst({
+          where: {
+            title: {
+              contains: query,
+              mode: 'insensitive',
+            },
+          },
+        });
+        if (book) {
+          seed = {
+            title: book.title,
+            author: book.author,
+            genre: null,
+            isbn13: book.isbn ?? null,
+          };
+        } else {
+          seed = {
+            title: query,
+            author: null,
+            genre: null,
+            isbn13: null,
+          };
+        }
+      }
+    } catch (dbErr) {
+      // Prisma 에러를 로깅하고 계속 진행 (DB 연결 실패해도 OpenAI API는 시도)
+      const errorMessage = dbErr instanceof Error ? dbErr.message : String(dbErr);
+      console.warn('[AI] Database query failed, continuing without seed. Error:', errorMessage);
+
+      // DB 쿼리 실패 시에도 계속 진행 (seed는 기본값 사용)
+      if (inputType === 'isbn') {
+        seed = {
+          title: null,
+          author: null,
+          genre: null,
+          isbn13: query,
+        };
+      } else {
+        seed = {
+          title: query,
+          author: null,
+          genre: null,
+          isbn13: null,
+        };
+      }
+    }
+
+    if (!process.env.OPENAI_API_KEY) {
+      // OpenAI 사용 불가 시, 최소 구조로 빈 추천 반환
       return {
         seed,
         items: [] as unknown[],
       };
     }
 
-    return validated.data;
+    try {
+      const userMessagePayload = {
+        inputType,
+        query,
+        userContext,
+        seed,
+      };
+
+      console.log('[AI] Generating recommendations with payload:', {
+        inputType,
+        query: query.substring(0, 50), // 처음 50자만 로깅
+        hasUserContext: !!userContext,
+        hasSeed: !!seed,
+        hasOpenAIKey: !!process.env.OPENAI_API_KEY,
+      });
+
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        response_format: { type: 'json_object' },
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are an AI book recommender for a reading tracker app called BookLens. ' +
+              'Output JSON ONLY, no additional text. ' +
+              'Input: a seed book (may be partial or missing), recent favorite books, preferred genres, and a reading goal. ' +
+              'Output format: { "seed": { "title": "...", "author": "...", "genre": "...", "isbn13": "..." }, "items": [ { "title": "...", "author": "...", "genre": "...", "reason": "...", "keywords": ["...","..."] } ] }. ' +
+              'Rules: If the seed is incomplete, still proceed using userContext. Never invent real ISBNs; you may set isbn13 to null or empty. ' +
+              'Reason should be 1-2 concise sentences in Korean. Up to 5 items.',
+          },
+          {
+            role: 'user',
+            content: JSON.stringify(userMessagePayload),
+          },
+        ],
+      });
+
+      const raw = completion.choices[0]?.message?.content || '';
+
+      let parsedResponse: unknown;
+      try {
+        parsedResponse = JSON.parse(raw);
+      } catch (parseErr) {
+        console.error('[AI] JSON parse error:', parseErr);
+        console.error('[AI] Raw response:', raw.substring(0, 200));
+        parsedResponse = null;
+      }
+
+      const validated = parsedResponse
+        ? AiResponseSchema.safeParse(parsedResponse)
+        : { success: false } as const;
+
+      if (!('success' in validated) || !validated.success) {
+        console.warn('[AI] Validation failed, returning empty items');
+        return {
+          seed,
+          items: [] as unknown[],
+        };
+      }
+
+      return validated.data;
+    } catch (err) {
+      console.error('[AI] OpenAI API error:', err);
+      if (err instanceof Error) {
+        console.error('[AI] Error message:', err.message);
+        console.error('[AI] Error stack:', err.stack);
+        // OpenAI API 에러의 경우 상세 정보 포함
+        if (err.message.includes('API key') || err.message.includes('401') || err.message.includes('403')) {
+          throw new AppError('OpenAI API 인증 오류가 발생했습니다. API 키를 확인해주세요.', 500);
+        }
+        if (err.message.includes('rate limit') || err.message.includes('429')) {
+          throw new AppError('OpenAI API 사용량 한도에 도달했습니다. 잠시 후 다시 시도해주세요.', 429);
+        }
+      }
+      throw new AppError('Failed to generate recommendations', 500);
+    }
   } catch (err) {
-    console.error('[AI] OpenAI API error:', err);
-    if (err instanceof Error) {
-      console.error('[AI] Error message:', err.message);
-      console.error('[AI] Error stack:', err.stack);
+    // 외부 catch: OpenAI API 에러나 기타 예상치 못한 에러만 처리
+    // (Prisma 쿼리 에러는 이미 내부에서 처리됨)
+    console.error('[AI] Unexpected error in generateRecommendations:', err);
+    if (err instanceof AppError) {
+      throw err; // 이미 AppError면 그대로 전달
+    }
+    // OpenAI API 에러가 외부 catch로 온 경우
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    if (errorMessage.includes('API key') || errorMessage.includes('401') || errorMessage.includes('403')) {
+      throw new AppError('OpenAI API 인증 오류가 발생했습니다. API 키를 확인해주세요.', 500);
+    }
+    if (errorMessage.includes('rate limit') || errorMessage.includes('429')) {
+      throw new AppError('OpenAI API 사용량 한도에 도달했습니다. 잠시 후 다시 시도해주세요.', 429);
     }
     throw new AppError('Failed to generate recommendations', 500);
   }
