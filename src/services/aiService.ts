@@ -120,6 +120,14 @@ export async function generateRecommendations(rawBody: unknown) {
       seed,
     };
 
+    console.log('[AI] Generating recommendations with payload:', {
+      inputType,
+      query: query.substring(0, 50), // 처음 50자만 로깅
+      hasUserContext: !!userContext,
+      hasSeed: !!seed,
+      hasOpenAIKey: !!process.env.OPENAI_API_KEY,
+    });
+
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       response_format: { type: 'json_object' },
@@ -146,7 +154,9 @@ export async function generateRecommendations(rawBody: unknown) {
     let parsedResponse: unknown;
     try {
       parsedResponse = JSON.parse(raw);
-    } catch {
+    } catch (parseErr) {
+      console.error('[AI] JSON parse error:', parseErr);
+      console.error('[AI] Raw response:', raw.substring(0, 200));
       parsedResponse = null;
     }
 
@@ -155,6 +165,7 @@ export async function generateRecommendations(rawBody: unknown) {
       : { success: false } as const;
 
     if (!('success' in validated) || !validated.success) {
+      console.warn('[AI] Validation failed, returning empty items');
       return {
         seed,
         items: [] as unknown[],
@@ -163,7 +174,11 @@ export async function generateRecommendations(rawBody: unknown) {
 
     return validated.data;
   } catch (err) {
-    console.error('OpenAI error', err);
+    console.error('[AI] OpenAI API error:', err);
+    if (err instanceof Error) {
+      console.error('[AI] Error message:', err.message);
+      console.error('[AI] Error stack:', err.stack);
+    }
     throw new AppError('Failed to generate recommendations', 500);
   }
 }
