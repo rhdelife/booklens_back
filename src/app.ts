@@ -6,6 +6,7 @@ import authRoutes from './routes/auth';
 import bookRoutes from './routes/books';
 import postingRoutes from './routes/postings';
 import aiRoutes from './routes/ai';
+import readingSessionRoutes from './routes/readingSessions';
 import { errorHandler } from './middleware/errorHandler';
 
 dotenv.config();
@@ -51,6 +52,11 @@ app.get('/', (_req, res) => {
         recommendations: '/api/ai/recommendations',
         readingTendency: '/api/ai/reading-tendency',
       },
+      readingSessions: {
+        save: '/api/reading-sessions/save',
+        calendar: '/api/reading-sessions/calendar',
+        date: '/api/reading-sessions/date',
+      },
     },
   });
 });
@@ -65,6 +71,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/books', bookRoutes);
 app.use('/api/postings', postingRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/reading-sessions', readingSessionRoutes);
 
 // 404 for /api
 app.use('/api', (_req, res) => {
