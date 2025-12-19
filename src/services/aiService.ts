@@ -165,8 +165,15 @@ export async function generateRecommendations(rawBody: unknown) {
               'Output JSON ONLY, no additional text. ' +
               'Input: a seed book (may be partial or missing), recent favorite books, preferred genres, and a reading goal. ' +
               'Output format: { "seed": { "title": "...", "author": "...", "genre": "...", "isbn13": "..." }, "items": [ { "title": "...", "author": "...", "genre": "...", "reason": "...", "keywords": ["...","..."] } ] }. ' +
-              'Rules: If the seed is incomplete, still proceed using userContext. Never invent real ISBNs; you may set isbn13 to null or empty. ' +
-              'Reason should be 1-2 concise sentences in Korean. Up to 5 items.',
+              'CRITICAL RULES: ' +
+              '1. You MUST ONLY recommend books that are REAL and currently available for sale at Kyobo Book Centre (교보문고). ' +
+              '2. NEVER invent or create fictional book titles, authors, or ISBNs. ' +
+              '3. ONLY recommend books that you know for certain exist and are sold at Kyobo Book Centre. ' +
+              '4. If you are not 100% certain a book exists and is available at Kyobo Book Centre, DO NOT include it. ' +
+              '5. If the seed is incomplete, still proceed using userContext, but still only recommend real books from Kyobo Book Centre. ' +
+              '6. Never invent real ISBNs; you may set isbn13 to null or empty if you do not know the exact ISBN. ' +
+              '7. Reason should be 1-2 concise sentences in Korean. Up to 5 items. ' +
+              '8. When in doubt, recommend fewer items rather than including potentially fictional books.',
           },
           {
             role: 'user',
