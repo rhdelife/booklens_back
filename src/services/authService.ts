@@ -47,6 +47,10 @@ export async function login(params: { email: string; password: string }) {
     throw new Error('Invalid email or password');
   }
 
+  if (!user.passwordHash) {
+    throw new Error('This account uses OAuth login. Please use Google to sign in.');
+  }
+
   const ok = await bcrypt.compare(params.password, user.passwordHash);
   if (!ok) {
     throw new Error('Invalid email or password');

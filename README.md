@@ -53,6 +53,11 @@ JWT_EXPIRES_IN=7d
 OPENAI_API_KEY=sk-...
 PORT=3000
 FRONTEND_URL=http://localhost:5173
+
+# Google OAuth
+GOOGLE_CLIENT_ID=your-google-client-id
+GOOGLE_CLIENT_SECRET=your-google-client-secret
+GOOGLE_REDIRECT_URI=http://localhost:3000/api/auth/google/callback
 ```
 
 ## 4. 설치 및 실행
@@ -160,6 +165,19 @@ Response:
 {
   "profile_image_url": "https://example.com/image.png"
 }
+```
+
+#### GET /api/auth/google
+
+Google OAuth 로그인을 시작합니다. Google 인증 페이지로 리다이렉트됩니다.
+
+#### GET /api/auth/google/callback
+
+Google OAuth 콜백 엔드포인트입니다. Google 인증 후 자동으로 호출되며, 프론트엔드로 리다이렉트되면서 토큰이 전달됩니다.
+
+**Response**: 프론트엔드로 리다이렉트
+```
+http://your-frontend-url/auth/callback?token=JWT_TOKEN&user={...}
 ```
 
 ### 5-2. 책 / 독서 (/api/books)

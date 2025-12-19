@@ -13,7 +13,7 @@ export async function listPostings() {
     },
   });
 
-  return postings.map((p) => ({
+  return postings.map((p: any) => ({
     id: p.id,
     user_id: p.userId,
     book_id: p.bookId ?? null,
@@ -22,7 +22,7 @@ export async function listPostings() {
     created_at: p.createdAt,
     updated_at: p.updatedAt,
     likes_count: p.likes.length,
-    comments: p.comments.map((c) => ({
+    comments: p.comments.map((c: any) => ({
       id: c.id,
       user_id: c.userId,
       posting_id: c.postingId,
@@ -83,7 +83,7 @@ export async function getPosting(id: number) {
     created_at: p.createdAt,
     updated_at: p.updatedAt,
     likes_count: p.likes.length,
-    comments: p.comments.map((c) => ({
+    comments: p.comments.map((c: any) => ({
       id: c.id,
       user_id: c.userId,
       posting_id: c.postingId,

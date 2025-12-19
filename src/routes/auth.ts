@@ -8,6 +8,7 @@ import {
   updateProfile,
   updateProfileImage,
 } from '../services/authService';
+import { getGoogleAuthUrl, handleGoogleCallback } from '../services/oauthService';
 import { AppError } from '../middleware/errorHandler';
 
 const router = Router();
@@ -183,6 +184,47 @@ router.post(
     }
   },
 );
+
+// GET /api/auth/google - Google OAuth 시작
+router.get('/google', (_req, res) => {
+  try {
+    const authUrl = getGoogleAuthUrl();
+    return res.redirect(authUrl);
+  } catch (err) {
+    console.error('Google OAuth error:', err);
+    return res.status(500).json({ error: 'Failed to initialize Google OAuth' });
+  }
+});
+
+// GET /api/auth/google/callback - Google OAuth 콜백
+router.get('/google/callback', async (req, res, next) => {
+  try {
+    const { code } = req.query;
+
+    if (!code || typeof code !== 'string') {
+      throw new AppError('Authorization code not provided', 400);
+    }
+
+    const { user, token } = await handleGoogleCallback(code);
+
+    // 프론트엔드로 리다이렉트 (토큰을 URL 파라미터나 쿼리로 전달)
+    // 프론트엔드 도메인 가져오기
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const redirectUrl = `${frontendUrl}/auth/callback?token=${token}&user=${encodeURIComponent(JSON.stringify(toUserResponse({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      nickname: user.nickname ?? null,
+      alias: user.alias ?? null,
+      bio: user.bio ?? null,
+      profileImageUrl: user.profileImageUrl ?? null,
+    })))}`;
+
+    return res.redirect(redirectUrl);
+  } catch (err) {
+    next(err);
+  }
+});
 
 export default router;
 

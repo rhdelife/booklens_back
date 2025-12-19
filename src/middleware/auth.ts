@@ -8,6 +8,9 @@ export interface AuthPayload {
 
 export interface AuthenticatedRequest extends Request {
   user?: AuthPayload;
+  body?: any;
+  params?: any;
+  query?: any;
 }
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
