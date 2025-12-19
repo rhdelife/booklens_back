@@ -199,10 +199,22 @@ router.get('/google', (_req, res) => {
 // GET /api/auth/google/callback - Google OAuth 콜백
 router.get('/google/callback', async (req, res, next) => {
   try {
-    const { code } = req.query;
+    const { code, error } = req.query;
+
+    // Google OAuth 에러 처리
+    if (error) {
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const errorMessage = error === 'access_denied' 
+        ? 'Google 로그인이 취소되었습니다.'
+        : `Google OAuth 에러: ${error}`;
+      const redirectUrl = `${frontendUrl}/auth/callback?error=${encodeURIComponent(errorMessage)}`;
+      return res.redirect(redirectUrl);
+    }
 
     if (!code || typeof code !== 'string') {
-      throw new AppError('Authorization code not provided', 400);
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+      const redirectUrl = `${frontendUrl}/auth/callback?error=${encodeURIComponent('인증 코드를 받을 수 없습니다.')}`;
+      return res.redirect(redirectUrl);
     }
 
     const { user, token } = await handleGoogleCallback(code);
@@ -222,7 +234,11 @@ router.get('/google/callback', async (req, res, next) => {
 
     return res.redirect(redirectUrl);
   } catch (err) {
-    next(err);
+    // 에러 발생 시 프론트엔드로 에러와 함께 리다이렉트
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const errorMessage = err instanceof Error ? err.message : '인증 중 오류가 발생했습니다.';
+    const redirectUrl = `${frontendUrl}/auth/callback?error=${encodeURIComponent(errorMessage)}`;
+    return res.redirect(redirectUrl);
   }
 });
 
