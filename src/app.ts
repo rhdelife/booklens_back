@@ -37,6 +37,21 @@ app.use((req, _res, next) => {
   next();
 });
 
+// Root endpoint
+app.get('/', (_req, res) => {
+  res.json({
+    message: 'BookLens Backend API',
+    version: '1.0.0',
+    endpoints: {
+      health: '/api/health',
+      auth: '/api/auth/*',
+      books: '/api/books/*',
+      postings: '/api/postings/*',
+      ai: '/api/ai/recommendations',
+    },
+  });
+});
+
 // Health
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true });
