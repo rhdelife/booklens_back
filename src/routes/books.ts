@@ -8,7 +8,10 @@ const router = Router();
 // GET /api/books
 router.get('/', authMiddleware, async (req: AuthenticatedRequest, res, next) => {
   try {
-    const userId = req.user!.userId;
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new AppError('Unauthorized', 401);
+    }
     const books = await listBooks(userId);
     res.json(books);
   } catch (err) {
@@ -19,7 +22,10 @@ router.get('/', authMiddleware, async (req: AuthenticatedRequest, res, next) => 
 // POST /api/books
 router.post('/', authMiddleware, async (req: AuthenticatedRequest, res, next) => {
   try {
-    const userId = req.user!.userId;
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new AppError('Unauthorized', 401);
+    }
     const body = req.body || {};
 
     if (!body.title || !body.author || typeof body.total_page !== 'number') {
@@ -36,7 +42,10 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res, next) =>
 // GET /api/books/:id
 router.get('/:id', authMiddleware, async (req: AuthenticatedRequest, res, next) => {
   try {
-    const userId = req.user!.userId;
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new AppError('Unauthorized', 401);
+    }
     const id = Number(req.params.id);
     if (Number.isNaN(id)) {
       throw new AppError('Invalid book id', 400);
@@ -56,7 +65,10 @@ router.get('/:id', authMiddleware, async (req: AuthenticatedRequest, res, next) 
 // PUT /api/books/:id
 router.put('/:id', authMiddleware, async (req: AuthenticatedRequest, res, next) => {
   try {
-    const userId = req.user!.userId;
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new AppError('Unauthorized', 401);
+    }
     const id = Number(req.params.id);
     if (Number.isNaN(id)) {
       throw new AppError('Invalid book id', 400);
@@ -76,7 +88,10 @@ router.put('/:id', authMiddleware, async (req: AuthenticatedRequest, res, next) 
 // DELETE /api/books/:id
 router.delete('/:id', authMiddleware, async (req: AuthenticatedRequest, res, next) => {
   try {
-    const userId = req.user!.userId;
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new AppError('Unauthorized', 401);
+    }
     const id = Number(req.params.id);
     if (Number.isNaN(id)) {
       throw new AppError('Invalid book id', 400);
@@ -94,5 +109,6 @@ router.delete('/:id', authMiddleware, async (req: AuthenticatedRequest, res, nex
 });
 
 export default router;
+
 
 

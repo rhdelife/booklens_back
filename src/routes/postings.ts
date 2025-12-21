@@ -27,7 +27,10 @@ router.get('/', async (_req, res, next) => {
 // POST /api/postings
 router.post('/', authMiddleware, async (req: AuthenticatedRequest, res, next) => {
   try {
-    const userId = req.user!.userId;
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new AppError('Unauthorized', 401);
+    }
     const { title, content, book_id } = req.body || {};
 
     if (!title || !content) {
@@ -63,7 +66,10 @@ router.get('/:id', async (req, res, next) => {
 // PUT /api/postings/:id
 router.put('/:id', authMiddleware, async (req: AuthenticatedRequest, res, next) => {
   try {
-    const userId = req.user!.userId;
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new AppError('Unauthorized', 401);
+    }
     const id = Number(req.params.id);
     if (Number.isNaN(id)) {
       throw new AppError('Invalid posting id', 400);
@@ -83,7 +89,10 @@ router.put('/:id', authMiddleware, async (req: AuthenticatedRequest, res, next) 
 // DELETE /api/postings/:id
 router.delete('/:id', authMiddleware, async (req: AuthenticatedRequest, res, next) => {
   try {
-    const userId = req.user!.userId;
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new AppError('Unauthorized', 401);
+    }
     const id = Number(req.params.id);
     if (Number.isNaN(id)) {
       throw new AppError('Invalid posting id', 400);
@@ -103,7 +112,10 @@ router.delete('/:id', authMiddleware, async (req: AuthenticatedRequest, res, nex
 // POST /api/postings/:id/like
 router.post('/:id/like', authMiddleware, async (req: AuthenticatedRequest, res, next) => {
   try {
-    const userId = req.user!.userId;
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new AppError('Unauthorized', 401);
+    }
     const id = Number(req.params.id);
     if (Number.isNaN(id)) {
       throw new AppError('Invalid posting id', 400);
@@ -119,7 +131,10 @@ router.post('/:id/like', authMiddleware, async (req: AuthenticatedRequest, res, 
 // POST /api/postings/:id/comments
 router.post('/:id/comments', authMiddleware, async (req: AuthenticatedRequest, res, next) => {
   try {
-    const userId = req.user!.userId;
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new AppError('Unauthorized', 401);
+    }
     const id = Number(req.params.id);
     const { content } = req.body || {};
 
@@ -140,7 +155,10 @@ router.post('/:id/comments', authMiddleware, async (req: AuthenticatedRequest, r
 // DELETE /api/comments/:id
 router.delete('/comments/:id', authMiddleware, async (req: AuthenticatedRequest, res, next) => {
   try {
-    const userId = req.user!.userId;
+    const userId = req.user?.userId;
+    if (!userId) {
+      throw new AppError('Unauthorized', 401);
+    }
     const id = Number(req.params.id);
     if (Number.isNaN(id)) {
       throw new AppError('Invalid comment id', 400);
@@ -158,5 +176,6 @@ router.delete('/comments/:id', authMiddleware, async (req: AuthenticatedRequest,
 });
 
 export default router;
+
 
 
