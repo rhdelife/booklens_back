@@ -181,13 +181,37 @@ export async function updateBook(
 }
 
 export async function deleteBook(userId: number, id: number) {
-  const existing = await prisma.book.findFirst({
-    where: { id, userId },
-  });
-  if (!existing) return false;
+  try {
+    const existing = await prisma.book.findFirst({
+      where: { id, userId },
+    });
+    if (!existing) return false;
 
-  await prisma.book.delete({ where: { id: existing.id } });
-  return true;
+    // 트랜잭션으로 관련 데이터 삭제 후 책 삭제
+    await prisma.$transaction(async (tx) => {
+      // 관련된 ReadingSession 삭제
+      await tx.readingSession.deleteMany({
+        where: { bookId: id },
+      });
+
+      // 관련된 Posting의 bookId를 null로 업데이트 (posting은 유지)
+      await tx.posting.updateMany({
+        where: { bookId: id },
+        data: { bookId: null },
+      });
+
+      // 책 삭제
+      await tx.book.delete({
+        where: { id: existing.id },
+      });
+    });
+
+    return true;
+  } catch (error) {
+    console.error('Error deleting book:', error);
+    throw error;
+  }
 }
+
 
 
