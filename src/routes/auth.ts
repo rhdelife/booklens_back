@@ -22,26 +22,19 @@ router.post('/signup', async (req, res, next) => {
       throw new AppError('Email, password, and name are required', 400);
     }
 
-    try {
-      const { user, token } = await signup({ email, password, name });
-      return res.status(201).json({
-        user: toUserResponse({
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          nickname: user.nickname ?? null,
-          alias: user.alias ?? null,
-          bio: user.bio ?? null,
-          profileImageUrl: user.profileImageUrl ?? null,
-        }),
-        token,
-      });
-    } catch (err) {
-      if (err instanceof Error && err.message === 'Email already in use') {
-        throw new AppError(err.message, 400);
-      }
-      throw err;
-    }
+    const { user, token } = await signup({ email, password, name });
+    return res.status(201).json({
+      user: toUserResponse({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        nickname: user.nickname ?? null,
+        alias: user.alias ?? null,
+        bio: user.bio ?? null,
+        profileImageUrl: user.profileImageUrl ?? null,
+      }),
+      token,
+    });
   } catch (err) {
     next(err);
   }
@@ -56,26 +49,19 @@ router.post('/login', async (req, res, next) => {
       throw new AppError('Email and password are required', 400);
     }
 
-    try {
-      const { user, token } = await login({ email, password });
-      return res.json({
-        user: toUserResponse({
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          nickname: user.nickname ?? null,
-          alias: user.alias ?? null,
-          bio: user.bio ?? null,
-          profileImageUrl: user.profileImageUrl ?? null,
-        }),
-        token,
-      });
-    } catch (err) {
-      if (err instanceof Error && err.message === 'Invalid email or password') {
-        throw new AppError(err.message, 401);
-      }
-      throw err;
-    }
+    const { user, token } = await login({ email, password });
+    return res.json({
+      user: toUserResponse({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        nickname: user.nickname ?? null,
+        alias: user.alias ?? null,
+        bio: user.bio ?? null,
+        profileImageUrl: user.profileImageUrl ?? null,
+      }),
+      token,
+    });
   } catch (err) {
     next(err);
   }

@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt';
 import jwt, { SignOptions } from 'jsonwebtoken';
 import prisma from '../lib/prisma';
+import { AppError } from '../middleware/errorHandler';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
@@ -24,44 +25,66 @@ export async function signup(params: {
   password: string;
   name: string;
 }) {
-  const existing = await prisma.user.findUnique({ where: { email: params.email } });
-  if (existing) {
-    throw new Error('Email already in use');
+  try {
+    const existing = await prisma.user.findUnique({ where: { email: params.email } });
+    if (existing) {
+      throw new AppError('Email already in use', 400);
+    }
+
+    const passwordHash = await bcrypt.hash(params.password, 10);
+
+    const user = await prisma.user.create({
+      data: {
+        email: params.email,
+        passwordHash,
+        name: params.name,
+      },
+    });
+
+    const token = createToken(user);
+
+    return { user, token };
+  } catch (err) {
+    // Prisma unique constraint violation (P2002)
+    if (err && typeof err === 'object' && 'code' in err && err.code === 'P2002') {
+      throw new AppError('Email already in use', 400);
+    }
+    // 이미 AppError인 경우 그대로 전달
+    if (err instanceof AppError) {
+      throw err;
+    }
+    // 기타 에러는 500으로 처리
+    throw new AppError('Failed to create user account', 500);
   }
-
-  const passwordHash = await bcrypt.hash(params.password, 10);
-
-  const user = await prisma.user.create({
-    data: {
-      email: params.email,
-      passwordHash,
-      name: params.name,
-    },
-  });
-
-  const token = createToken(user);
-
-  return { user, token };
 }
 
 export async function login(params: { email: string; password: string }) {
-  const user = await prisma.user.findUnique({ where: { email: params.email } });
-  if (!user) {
-    throw new Error('Invalid email or password');
+  try {
+    const user = await prisma.user.findUnique({ where: { email: params.email } });
+    if (!user) {
+      throw new AppError('Invalid email or password', 401);
+    }
+
+    if (!user.passwordHash) {
+      throw new AppError('This account uses OAuth login. Please use Google to sign in.', 403);
+    }
+
+    const ok = await bcrypt.compare(params.password, user.passwordHash);
+    if (!ok) {
+      throw new AppError('Invalid email or password', 401);
+    }
+
+    const token = createToken(user);
+
+    return { user, token };
+  } catch (err) {
+    // 이미 AppError인 경우 그대로 전달
+    if (err instanceof AppError) {
+      throw err;
+    }
+    // 기타 에러는 500으로 처리
+    throw new AppError('Failed to login', 500);
   }
-
-  if (!user.passwordHash) {
-    throw new Error('This account uses OAuth login. Please use Google to sign in.');
-  }
-
-  const ok = await bcrypt.compare(params.password, user.passwordHash);
-  if (!ok) {
-    throw new Error('Invalid email or password');
-  }
-
-  const token = createToken(user);
-
-  return { user, token };
 }
 
 export async function getMe(userId: number) {
